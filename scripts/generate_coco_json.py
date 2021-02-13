@@ -12,7 +12,9 @@ import os
 # called coco within the same folder as the repo. The file structure
 # of the dataset should be as follows:
 
-# image_dir
+# Please dont forget to set the global environ variable.
+# export COCO_IMG_DIR='/hatti/code/nlp2021winter/datasets/coco_imgs'
+# coco_imgs
 # |---test2014
 # |    |---000001.jpg
 # |    |---000002.jpg
@@ -22,9 +24,8 @@ import os
 
 # In[7]:
 
-
 jsonObject = {"images": []}
-# os.environ['COCO_IMG_DIR'] = '/hatti/code/nlp2021winter/datasets/coco_imgs'
+assert os.getenv('COCO_IMG_DIR') is not None, "Please set the global environ variable for COCO_IMG_DIR"
 image_dir = path.join(os.getenv('COCO_IMG_DIR'))
 
 
