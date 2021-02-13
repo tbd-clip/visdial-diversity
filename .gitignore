@@ -14,7 +14,10 @@ dialog_output/results
 
 # IPython Notebook
 .ipynb_checkpoints
+# checkpoit
+checkpoints-release
 
+scripts/*.json
 # virtualenv
 venv/
 ENV/
