@@ -64,7 +64,7 @@ class Decoder(nn.Module):
             outputs, _ = self.rnn(inputSeq, encStates)
             outputs = F.dropout(outputs, self.dropout, training=self.training)
             outputSize = outputs.size()
-            flatOutputs = outputs.view(-1, outputSize[2])
+            flatOutputs = outputs.contiguous().view(-1, outputSize[2])
             flatScores = self.outNet(flatOutputs)
             flatLogProbs = self.logSoftmax(flatScores)
             logProbs = flatLogProbs.view(outputSize[0], outputSize[1], -1)
@@ -75,7 +75,9 @@ class Decoder(nn.Module):
                       encStates,
                       maxSeqLen=20,
                       inference='sample',
-                      beamSize=1, futureReward=True, run_mcts=False, num_beams_mcts = 10):
+                      beamSize=1,
+                      futureReward=True,
+                      run_mcts=False, num_beams_mcts=10):
         '''
         Decode a sequence of tokens given an encoder state, using either
         sampling or greedy inference.
@@ -124,7 +126,12 @@ class Decoder(nn.Module):
         unitColumn = th.LongTensor(batchSize).fill_(1)
         mask = th.ByteTensor(seq.size()).fill_(0)
 
-        self.saved_log_probs = []
+        #self.saved_log_probs = []
+
+        # probabilities from current policy
+        self.saved_curr_probs = []
+        # probabilities from previous policy
+        self.saved_old_probs = []
 
         # Generating tokens sequentially
         for t in range(maxLen - 1):
@@ -176,8 +183,13 @@ class Decoder(nn.Module):
             elif inference == 'sample' and not run_mcts:
                 categorical_dist = Categorical(probs)
                 sample = categorical_dist.sample()
+                # print(sample.shape, sample)
+                # print(probs.shape, probs)
                 # Saving log probs for a subsequent reinforce call
-                self.saved_log_probs.append(categorical_dist.log_prob(sample))
+                # self.saved_log_probs.append(categorical_dist.log_prob(sample))
+                # @TODO REMOVE THIS DEBUGGING HACK
+                self.saved_curr_probs.append(torch.exp(categorical_dist.log_prob(sample)))
+                #self.saved_curr_probs.append(probs[sample])
                 sample = sample.unsqueeze(-1)
 
             elif inference == 'greedy':
@@ -267,25 +279,33 @@ class Decoder(nn.Module):
 
     def reinforce(self,reward,futureReward=False,mcts=False):
         '''
-        Compute loss using REINFORCE on log probabilities of tokens
+        Compute loss using PPO + REINFORCE on probabilities of tokens
         sampled from decoder RNN, scaled by input 'reward'.
 
         Note that an earlier call to forwardDecode must have been
         made in order to have samples for which REINFORCE can be
-        applied. These samples are stored in 'self.saved_log_probs'.
+        applied. These samples are stored in 'self.saved_curr_probs'.
         '''
         loss = 0
         # samples = torch.stack(self.samples, 1)
         # sampleLens = self.sampleLens - 1
-        if len(self.saved_log_probs) == 0:
+        if len(self.saved_curr_probs) == 0 or len(self.saved_old_probs) == 0:
             raise RuntimeError("Reinforce called without sampling in Decoder")
 
         if not futureReward:
-            for t, log_prob in enumerate(self.saved_log_probs):
+            zip_probs = zip(self.saved_curr_probs, self.saved_old_probs)
+            for t, (new_pi_prob, old_pi_prob) in enumerate(zip_probs):
 
                 if not mcts:
-                    # reward is a single vector
-                    loss += -1 * log_prob * (reward.detach() * (self.mask[:, t].float()))
+                    a_hat = (reward.detach() * (self.mask[:, t].float()))
+                    clip_param = 0.2
+                    ratio = new_pi_prob / (old_pi_prob + 1e-15)
+                    # surrogate from conservative policy iteration
+                    surr_1 = ratio * a_hat
+                    surr_2 = torch.clamp(ratio, 1.0 - clip_param, 1.0 + clip_param) * a_hat
+                    # PPO's pessimistic surrogate (L^CLIP) 
+                    loss -= torch.mean(torch.min(surr_1, surr_2))
+
                 else:
                     # reward is a matrix, different token have different returns from the environment
                     loss += -1 * log_prob * (reward[:, t].detach() * (self.mask[:, t].float()))
