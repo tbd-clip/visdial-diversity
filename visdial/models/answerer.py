@@ -86,7 +86,7 @@ class Answerer(Agent):
         logProbs = self.decoder(encStates, inputSeq=decIn)
         return logProbs
 
-    def forwardDecode(self, inference='sample',futureReward=False, beamSize=1, maxSeqLen=20,run_mcts=False):
+    def forwardDecode(self, inference='sample',futureReward=False, beamSize=1, maxSeqLen=20, run_mcts=False):
         '''
         Decode a sequence (answer) using either sampling or greedy inference.
         An answer is decoded given the current state (dialog history). This
