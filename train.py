@@ -1,5 +1,6 @@
 import os
 import gc
+import pdb
 import random
 import pprint
 from six.moves import range
@@ -48,15 +49,18 @@ for key in transfer:
 
 # Create save path and checkpoints folder
 os.makedirs('checkpoints', exist_ok=True)
-os.mkdir(params['savePath'])
+os.makedirs(params['savePath'], exist_ok=True)
 
 # Loading Modules
 parameters = []
 aBot = None
 qBot = None
+aBot_old = None
+qBot_old = None
 
 # Loading Q-Bot
 if params['trainMode'] in ['sl-qbot', 'rl-full-QAf']:
+    qBot_old, loadedParams, optim_state = utils.loadModel(params, 'qbot')
     qBot, loadedParams, optim_state = utils.loadModel(params, 'qbot')
     for key in loadedParams:
         params[key] = loadedParams[key]
@@ -65,14 +69,21 @@ if params['trainMode'] in ['sl-qbot', 'rl-full-QAf']:
         qBot.freezeFeatNet()
     # Filtering parameters which require a gradient update
     parameters.extend(filter(lambda p: p.requires_grad, qBot.parameters()))
+    parameters.extend(filter(lambda p: p.requires_grad, qBot_old.parameters()))
+
+    qBot_old.load_state_dict(qBot.state_dict())
 
     # parameters.extend(qBot.parameters())
+
 # Loading A-Bot
 if params['trainMode'] in ['sl-abot', 'rl-full-QAf']:
+    aBot_old, loadedParams, optim_state = utils.loadModel(params, 'abot')
     aBot, loadedParams, optim_state = utils.loadModel(params, 'abot')
     for key in loadedParams:
         params[key] = loadedParams[key]
     parameters.extend(aBot.parameters())
+    parameters.extend(aBot_old.parameters())
+    aBot_old.load_state_dict(aBot.state_dict())
 
 # Setup pytorch dataloader
 dataset.split = 'train'
@@ -184,14 +195,19 @@ for epochId, idx, batch in batch_iter(dataloader):
     # Setting training modes for both bots and observing captions, images where needed
     if aBot:
         aBot.train(), aBot.reset()
+        aBot_old.eval(), aBot_old.reset()
         aBot.observe(-1, image=image, caption=caption, captionLens=captionLens)
+        aBot_old.observe(-1, image=image, caption=caption, captionLens=captionLens)
     if qBot:
         qBot.train(), qBot.reset()
+        qBot_old.eval(), qBot_old.reset()
         qBot.observe(-1, caption=caption, captionLens=captionLens)
+        qBot_old.observe(-1, caption=caption, captionLens=captionLens)
 
     # Q-Bot image feature regression ('guessing') only occurs if Q-Bot is present
     if params['trainMode'] in ['sl-qbot', 'rl-full-QAf']:
         initialGuess = qBot.predictImage()
+        _ = qBot_old.predictImage()
         prevFeatDist = mse_criterion(initialGuess, image)
         featLoss += torch.mean(prevFeatDist)
         prevFeatDist = torch.mean(prevFeatDist,1)
@@ -257,12 +273,21 @@ for epochId, idx, batch in batch_iter(dataloader):
                 round,
                 ques=gtQuestions[:, round],
                 quesLens=gtQuesLens[:, round])
+            aBot_old.observe(
+                round,
+                ques=gtQuestions[:, round],
+                quesLens=gtQuesLens[:, round])
             # Observe GT answer for teacher forcing
             aBot.observe(
                 round,
                 ans=gtAnswers[:, round],
                 ansLens=gtAnsLens[:, round])
+            aBot_old.observe(
+                round,
+                ans=gtAnswers[:, round],
+                ansLens=gtAnsLens[:, round])
             ansLogProbs = aBot.forward()
+            ansLogProbs = aBot_old.forward()
             # Cross Entropy (CE) Loss for Ground Truth Answers
             aBotLoss += utils.maskedNll(ansLogProbs,
                                         gtAnswers[:, round].contiguous())
@@ -274,12 +299,23 @@ for epochId, idx, batch in batch_iter(dataloader):
                 round,
                 ques=gtQuestions[:, round],
                 quesLens=gtQuesLens[:, round])
+            qBot_old.observe(
+                round,
+                ques=gtQuestions[:, round],
+                quesLens=gtQuesLens[:, round])
+
             quesLogProbs = qBot.forward()
+            quesLogProbs = qBot_old.forward()
             # Cross Entropy (CE) Loss for Ground Truth Questions
             qBotLoss += utils.maskedNll(quesLogProbs,
                                         gtQuestions[:, round].contiguous())
             # Observe GT answer for updating dialog history
             qBot.observe(
+                round,
+                ans=gtAnswers[:, round],
+                ansLens=gtAnsLens[:, round])
+
+            qBot_old.observe(
                 round,
                 ans=gtAnswers[:, round],
                 ansLens=gtAnsLens[:, round])
@@ -293,6 +329,7 @@ for epochId, idx, batch in batch_iter(dataloader):
         if forwardFeatNet and round < MAX_FEAT_ROUNDS:
             # Make an image prediction after each round
             predFeatures = qBot.predictImage()
+            _ = qBot_old.predictImage()
             featDist = mse_criterion(predFeatures, image)
             featDist = torch.mean(featDist)
             featLoss += featDist
@@ -302,8 +339,10 @@ for epochId, idx, batch in batch_iter(dataloader):
 
             if params['trainMode'] == 'sl-qbot' or params['trainMode'] == 'rl-full-QAf':
                 cur_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
+                cur_dialog_hidden = qBot_old.encoder.dialogHiddens[-1][0]
             elif params['trainMode'] == 'sl-abot':
                 cur_dialog_hidden = aBot.encoder.dialogHiddens[-1][0]
+                cur_dialog_hidden = aBot_old.encoder.dialogHiddens[-1][0]
 
             if params["useCosSimilarityLoss"]:
                 if round > 0:
@@ -317,8 +356,10 @@ for epochId, idx, batch in batch_iter(dataloader):
 
                 if params['trainMode'] == 'sl-qbot' or params['trainMode'] == 'rl-full-QAf':
                     past_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
+                    past_dialog_hidden = qBot_old.encoder.dialogHiddens[-1][0]
                 elif params['trainMode'] == 'sl-abot':
                     past_dialog_hidden = aBot.encoder.dialogHiddens[-1][0]
+                    past_dialog_hidden = aBot_old.encoder.dialogHiddens[-1][0]
 
             else:
                 past_dialog_hidden = cur_dialog_hidden
@@ -326,19 +367,30 @@ for epochId, idx, batch in batch_iter(dataloader):
         # A-Bot and Q-Bot interacting in RL rounds
         if params['trainMode'] == 'rl-full-QAf' and round >= rlRound:
 
-            # Run one round of conversation
+            # Run one round of conversation on both current and previous policy
+            _questions, _quesLens = qBot_old.forwardDecode(inference='sample')
             questions, quesLens = qBot.forwardDecode(inference='sample')
+            qBot.decoder.saved_old_probs = qBot_old.decoder.saved_curr_probs
+
             qBot.observe(round, ques=questions, quesLens=quesLens)
+            qBot_old.observe(round, ques=questions, quesLens=quesLens)
             aBot.observe(round, ques=questions, quesLens=quesLens)
+            aBot_old.observe(round, ques=questions, quesLens=quesLens)
             if params["AbotMCTS"]:
                 answers, ansLens = aBot.forwardDecode(inference='sample',run_mcts=True)
             else:
+                # Run one round of conversation on both current and previous policy
+                _answers, _ansLens = aBot_old.forwardDecode(inference='sample')
                 answers, ansLens = aBot.forwardDecode(inference='sample')
+                aBot.decoder.saved_old_probs = aBot_old.decoder.saved_curr_probs
             aBot.observe(round, ans=answers, ansLens=ansLens)
+            aBot_old.observe(round, ans=answers, ansLens=ansLens)
             qBot.observe(round, ans=answers, ansLens=ansLens)
+            qBot_old.observe(round, ans=answers, ansLens=ansLens)
 
             # Q-Bot makes a guess at the end of each round
             predFeatures = qBot.predictImage()
+            _ = qBot_old.predictImage()
 
             # Computing reward based on Q-Bot's predicted image
             featDist = mse_criterion(predFeatures, image)
@@ -372,6 +424,12 @@ for epochId, idx, batch in batch_iter(dataloader):
     cos_similarity_loss = (params['CosSimilarityLossCoeff'] * cos_similarity_loss) / numRounds
     # we want to minimize the negative of the Huber Loss.
     huber_loss = -(params["HuberLossCoeff"] * huber_loss)/numRounds
+
+    # save the soon to be old copies of the models for use in PPO RL objective
+    if aBot:
+        aBot_old.load_state_dict(aBot.state_dict())
+    if qBot:
+        qBot_old.load_state_dict(qBot.state_dict())
 
     loss = qBotLoss + aBotLoss + rlLoss + featLoss + cos_similarity_loss + huber_loss
     loss.backward()
