@@ -98,7 +98,7 @@ class Questioner(Agent):
         logProbs = self.decoder(encStates, inputSeq=decIn)
         return logProbs
 
-    def forwardDecode(self, inference='sample', futureReward=False, beamSize=1, maxSeqLen=20,run_mcts=False):
+    def forwardDecode(self, inference='sample', futureReward=False, beamSize=1, maxSeqLen=20, run_mcts=False):
         '''
         Decode a sequence (question) using either sampling or greedy inference.
         A question is decoded given current state (dialog history). This can
