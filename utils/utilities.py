@@ -148,10 +148,10 @@ def loadModel(params, agent='abot', overwrite=False, multiGPU=False):
     if params['useGPU']:
         model.cuda()
 
-    # for p in model.encoder.parameters():
-    #     p.register_hook(clampGrad)
-    # for p in model.decoder.parameters():
-    #     p.register_hook(clampGrad)
+    for p in model.encoder.parameters():
+        p.register_hook(clampGrad)
+    for p in model.decoder.parameters():
+        p.register_hook(clampGrad)
     # NOTE: model.parameters() should be used here, otherwise immediate
     # child modules in model will not have gradient clamping
 
