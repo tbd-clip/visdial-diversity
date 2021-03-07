@@ -17,6 +17,9 @@ from eval_utils.rank_questioner import rankQBot
 from collections import Counter
 from scipy.stats import entropy
 
+from dataloader import SingleImageEvalDataset
+
+
 def dialogDump(params,
                dataset,
                split,
@@ -558,6 +561,233 @@ def run_dialog(params,
     ret_metrics["dist_2_CI"] = (1.96 * np.std(dist_2_list))/math.sqrt(len(dist_2_list))
 
     return text,ret_metrics
+
+
+def run_single_dialog(params,
+                      dataset,
+                      split,
+                      aBot,
+                      qBot=None,
+                      beamSize=1):
+    assert qBot is not None and aBot is not None,\
+            "Must provide Q-Bot and A-Bot when generating dialog"
+    assert isinstance(dataset, SingleImageEvalDataset)
+    # rankMetrics, _ = rankQBot(qBot, dataset, 'val')
+
+    old_split = dataset.split
+    batchSize = dataset.batchSize
+    numRounds = dataset.numRounds
+    train_questions = set()
+
+    dataset.split = 'train'
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batchSize,
+        shuffle=False,
+        num_workers=0,
+        collate_fn=dataset.collate_fn)
+
+    ind2word = dataset.ind2word
+    to_str_gt = lambda w: str(" ".join([ind2word[x] for x in filter(lambda x:\
+                    x>0,w.data.cpu().numpy())])) #.encode('utf-8','ignore')
+    to_str_pred = lambda w, l: str(" ".join([ind2word[x] for x in list( filter(
+        lambda x:x>0,w.data.cpu().numpy()))][:l.data.cpu()[0]])) #.encode('utf-8','ignore')
+
+    dataset.split = split
+
+    dataloader = DataLoader(
+        dataset,
+        batch_size=batchSize,
+        shuffle=False,
+        num_workers=0,
+        collate_fn=dataset.collate_fn)
+
+    text = {'data': []}
+    if '%s_img_fnames' % split not in dataset.data.keys():
+        print("[Error] Need coco directory and info as input " \
+               "to -cocoDir and -cocoInfo arguments for locating "\
+               "coco image files.")
+        print("Exiting dialogDump without saving files.")
+        return None
+
+    getImgFileName = lambda x: dataset.data['%s_img_fnames' % split][x]
+    getImgId = lambda x: int(getImgFileName(x)[:-4][-12:])
+
+    similarity_scores_mean = Variable(torch.zeros(numRounds))
+    norm_difference_scores_mean = Variable(torch.zeros(numRounds))
+    norm_scores_mean = Variable(torch.zeros(numRounds))
+    huber_scores_mean = Variable(torch.zeros(numRounds))
+
+    if params["useGPU"]:
+
+        similarity_scores_mean = similarity_scores_mean.cuda()
+        norm_difference_scores_mean = norm_difference_scores_mean.cuda()
+        norm_scores_mean = norm_scores_mean.cuda()
+        huber_scores_mean = huber_scores_mean.cuda()
+
+    tot_idx = 0
+    output_dialog = True
+    tot_examples = 0
+    unique_questions = 0
+    unique_questions_list = []
+    mutual_overlap_list = []
+    ent_1_list = []
+    ent_2_list = []
+    dist_1_list = []
+    dist_2_list = []
+    avg_precision_list = []
+
+    bleu_metric = 0
+    novel_questions = 0
+    oscillating_questions_cnt = 0
+    ent_1 = 0
+    ent_2 = 0
+
+    for idx, batch in enumerate(dataloader):
+        print("current batch:",idx)
+        if idx > 3:
+            output_dialog = False
+        tot_idx = tot_idx + 1
+        imgIds = [getImgId(x) for x in batch['index']]
+        dialog = [{'dialog': [], 'image_id': imgId} for imgId in imgIds]
+
+        if dataset.useGPU:
+            batch = {key: v.cuda() if hasattr(v, 'cuda')\
+                else v for key, v in batch.items()}
+
+        image = Variable(batch['img_feat'], volatile=True)
+        caption = Variable(batch['cap'], volatile=True)
+        # ignoring the last batch
+        if caption.size()[0] < batchSize:
+            break
+        captionLens = Variable(batch['cap_len'], volatile=True)
+
+        aBot.eval(), aBot.reset()
+        aBot.observe(
+            -1, image=image, caption=caption, captionLens=captionLens)
+        qBot.eval(), qBot.reset()
+        qBot.observe(-1, caption=caption, captionLens=captionLens)
+        questions = []
+
+        for j in range(batchSize):
+            caption_str = to_str_gt(caption[j])[8:-6]
+            dialog[j]['caption'] = caption_str
+        past_dialog_hidden = None
+        cur_dialog_hidden = None
+        question_str_list = [[] for _ in range(batchSize)]
+        gt_questions_str = [[] for _ in range(batchSize)]
+
+        gtQuestions = Variable(batch['ques'], volatile=True)
+        gtQuesLens = Variable(batch['ques_len'], volatile=True)
+        gtAnswers = Variable(batch['ans'], volatile=True)
+        gtAnsLens = Variable(batch['ans_len'], volatile=True)
+
+        for round in range(numRounds):
+
+            questions, quesLens = qBot.forwardDecode(
+                beamSize=beamSize, inference='greedy')
+            qBot.observe(round, ques=questions, quesLens=quesLens)
+            aBot.observe(round, ques=questions, quesLens=quesLens)
+            answers, ansLens = aBot.forwardDecode(
+                beamSize=beamSize, inference='greedy')
+            aBot.observe(round, ans=answers, ansLens=ansLens)
+            qBot.observe(round, ans=answers, ansLens=ansLens)
+            qBot.encoder()
+
+            cur_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
+            if round == 0:
+                past_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
+            cos = nn.CosineSimilarity(dim=1, eps=1e-6)
+            similarity_scores = cos(cur_dialog_hidden, past_dialog_hidden)
+            norm_difference_scores = torch.abs(torch.norm(cur_dialog_hidden, p=2, dim=1) - \
+                          torch.norm(past_dialog_hidden,p=2,dim=1))
+            # calculate norm
+            norm_scores = torch.norm(cur_dialog_hidden, p=2, dim=1)
+            # calculate Huber Loss/ Difference at consecutive rounds with Huber Threshold = 0.1
+            threshold = 0.1
+            norm_differences = torch.abs(cur_dialog_hidden - past_dialog_hidden)
+            l2_mask = norm_differences <= threshold
+            norm_differences_new = 0.5 * norm_differences * norm_differences * (l2_mask == 1).float()
+            l1_mask = norm_differences > threshold
+            norm_differences_new = norm_differences_new + (((l1_mask == 1).float()) * (threshold *
+                                                                               (norm_differences - (0.5 * threshold))))
+
+            huber_scores = torch.sum(norm_differences_new, dim=1)
+
+            past_dialog_hidden = cur_dialog_hidden
+            similarity_scores_mean[round] = similarity_scores_mean[round] + torch.mean(similarity_scores)
+
+            norm_difference_scores_mean[round] = norm_difference_scores_mean[round] + torch.mean(norm_difference_scores)
+            norm_scores_mean[round] = norm_scores_mean[round] + torch.mean(norm_scores)
+            huber_scores_mean[round] = huber_scores_mean[round] + torch.mean(huber_scores)
+
+            for j in range(batchSize):
+                question_str = to_str_pred(questions[j], quesLens[j])
+
+                gt_question_str = to_str_pred(gtQuestions[j,round,:], gtQuesLens[j,round])
+
+                gt_questions_str[j].append(gt_question_str[8:])
+
+                question_str_list[j].append(question_str[8:])
+                answer_str = to_str_pred(answers[j], ansLens[j])
+                if output_dialog:
+                    if round == 0:
+                        norm_score = float(norm_scores[j])
+                        dialog[j]['dialog'].append({
+                            "answer": answer_str[8:],
+                            "question": question_str[8:] + ":" + "N:%.2f" % norm_score + " "
+                        })  # "8:" for indexing out initial <START>
+                    else:
+                        similarity_score = float(similarity_scores[j])
+                        norm_difference_score = float(norm_difference_scores[j])
+                        norm_score = float(norm_scores[j])
+                        huber_score = float(huber_scores[j])
+                        dialog[j]['dialog'].append({
+                            "answer": answer_str[8:],
+                            "question": question_str[8:] + ":" + "C:%.2f" % similarity_score + ";" +
+                                        "NP:%.2f" % norm_difference_score + "H:%.2f" % huber_score + ";" +
+                                        "N:%.2f" % norm_score + " "
+                        })  # "8:" for indexing out initial <START>
+
+        tot_examples += batchSize
+
+        if output_dialog:
+            text['data'].extend(dialog)
+
+    similarity_scores_mean = similarity_scores_mean * (1.0/tot_idx)
+    norm_difference_scores_mean = norm_difference_scores_mean * (1.0/tot_idx)
+    norm_scores_mean = norm_scores_mean *(1.0/tot_idx)
+    huber_scores_mean = huber_scores_mean *(1.0/tot_idx)
+
+    print("Mean Cos Similarity Scores:", similarity_scores_mean)
+    print("Mean Difference of Norms Scores:", norm_difference_scores_mean)
+    print("Mean Norm of Dialog State:", norm_scores_mean)
+    print("Mean Huber Loss(Norm of differences):", huber_scores_mean)
+
+    text['opts'] = {
+        'qbot': params['qstartFrom'],
+        'abot': params['startFrom'],
+        'backend': 'cudnn',
+        'beamLen': 20,
+        'beamSize': beamSize,
+        'decoder': params['decoder'],
+        'encoder': params['encoder'],
+        'gpuid': 0,
+        'imgNorm': params['imgNorm'],
+        'inputImg': params['inputImg'],
+        'inputJson': params['inputJson'],
+        'inputQues': params['inputQues'],
+        'loadPath': 'checkpoints/',
+        'maxThreads': 1,
+        'resultPath': 'dialog_output/results',
+        'sampleWords': 0,
+        'temperature': 1,
+        'useHistory': True,
+        'useIm': True,
+    }
+
+    dataset.split = old_split
+    return text
 
 def get_entropy_ctr(ctr):
 

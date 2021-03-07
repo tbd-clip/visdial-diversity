@@ -9,10 +9,10 @@ import torch.optim as optim
 from torch.autograd import Variable
 
 import options
-from dataloader import VisDialDataset
+from dataloader import VisDialDataset, SingleImageEvalDataset
 from dataloader_human_study import VisDialDatasetHumanStudy
 from torch.utils.data import DataLoader
-from eval_utils.dialog_generate import dialogDump
+from eval_utils.dialog_generate import dialogDump, run_single_dialog
 from eval_utils.human_study_data import dumpData
 
 
@@ -44,7 +44,8 @@ dlparams['useHistory'] = True
 dlparams['numRounds'] = 10
 splits = ['train','val', 'test']
 
-dataset = VisDialDataset(dlparams, splits)
+# dataset = VisDialDataset(dlparams, splits)
+dataset = SingleImageEvalDataset(dlparams, splits, '185565')
 
 # Transferring dataset parameters
 transfer = ['vocabSize', 'numOptions', 'numRounds']
@@ -170,6 +171,14 @@ if 'dialog' in params['evalModeList']:
         qBot=qBot,
         beamSize=params['beamSize'],
         saveFolder=outputFolder)
+
+if 'single_dialog' in params['evalModeList']:
+    print("Performing single dialog generation...")
+    split = 'single'
+    outputFolder = params["savePath"]
+    os.makedirs(outputFolder, exist_ok=True)
+    from pprint import pprint
+    pprint(run_single_dialog(params, dataset, split, aBot, qBot, beamSize=params['beamSize']))
 
 if 'human_study' in params['evalModeList']:
     # use new dataloader

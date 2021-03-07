@@ -1,5 +1,7 @@
 import os
 import json
+import re
+
 import h5py
 import numpy as np
 import torch
@@ -417,3 +419,44 @@ class VisDialDataset(Dataset):
             item["image_id"] = torch.LongTensor([image_id])
 
         return item
+
+
+class SingleImageEvalDataset(VisDialDataset):
+    single_split_name = 'single'
+
+    def __init__(self, params, subsets, image_id):
+        super().__init__(params, subsets)
+
+        # find image by id, then use its index to get all related objects
+        fname_re = re.compile(f'{image_id}')
+        img_split = None
+        img_index = None
+        for split in subsets:
+            for i, v in enumerate(self.data[f'{split}_img_fnames']):
+                if re.search(fname_re, v) is not None:
+                    print(f'found image {v} in split {split}')
+                    img_index = i
+                    img_split = split
+        tensor_index = torch.LongTensor([img_index])
+
+        # add a split to hold the single image we want
+        data = {}
+        for key, val in self.data.items():
+            if key.startswith(img_split):
+                new_key = key.replace(img_split, self.single_split_name)
+                if 'opt_' in key:
+                    # these are answer options
+                    # val_opt is used to index into val_opt_list, val_opt_len
+                    # so just keep opt_list, opt_len as they come
+                    data[new_key] = val.clone()
+                elif isinstance(val, list):
+                    data[new_key] = [val[img_index]]
+                else:
+                    data[new_key] = val.index_select(0, tensor_index)
+        self.data.update(data)
+
+        self.subsets = tuple(list(self.subsets) + [self.single_split_name])
+        self.split = self.single_split_name
+
+        self.numDataPoints[self.single_split_name] = 1
+        self.batchSize = 1

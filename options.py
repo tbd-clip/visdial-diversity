@@ -137,7 +137,8 @@ def readCommandLine(argv=None):
                             help='Beam width for beam-search sampling')
     parser.add_argument('-evalModeList', default=[], nargs='+',
                             help='What task should the evaluator perform?',
-                            choices=['ABotRank', 'QBotRank', 'QABotsRank', 'dialog','human_study'])
+                            choices=['ABotRank', 'QBotRank', 'QABotsRank',
+                                     'dialog', 'single_dialog','human_study'])
     parser.add_argument('-evalSplit', default='val',
                             choices=['train', 'val', 'test'])
     parser.add_argument('-evalTitle', default='eval',
