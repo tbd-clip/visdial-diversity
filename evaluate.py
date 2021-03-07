@@ -44,8 +44,7 @@ dlparams['useHistory'] = True
 dlparams['numRounds'] = 10
 splits = ['train','val', 'test']
 
-# dataset = VisDialDataset(dlparams, splits)
-dataset = SingleImageEvalDataset(dlparams, splits, '185565')
+dataset = VisDialDataset(dlparams, splits)
 
 # Transferring dataset parameters
 transfer = ['vocabSize', 'numOptions', 'numRounds']
@@ -174,6 +173,7 @@ if 'dialog' in params['evalModeList']:
 
 if 'single_dialog' in params['evalModeList']:
     print("Performing single dialog generation...")
+    dataset = SingleImageEvalDataset(dataset, '185565')
     split = 'single'
     outputFolder = params["savePath"]
     os.makedirs(outputFolder, exist_ok=True)

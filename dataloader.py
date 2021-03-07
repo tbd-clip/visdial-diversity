@@ -1,6 +1,7 @@
 import os
 import json
 import re
+from collections import ChainMap
 
 import h5py
 import numpy as np
@@ -423,16 +424,23 @@ class VisDialDataset(Dataset):
 
 class SingleImageEvalDataset(VisDialDataset):
     single_split_name = 'single'
+    _dataset = None
 
-    def __init__(self, params, subsets, image_id):
-        super().__init__(params, subsets)
+    def __init__(self, dataset, image_id):
+        # This object wraps the given dataset object. We pass through all
+        # attributes and method calls, except we add a split called 'single'
+        # to the underlying 'data' dict and update the batch size.
+
+        # skip super call
+
+        self._dataset = dataset
 
         # find image by id, then use its index to get all related objects
         fname_re = re.compile(f'{image_id}')
         img_split = None
         img_index = None
-        for split in subsets:
-            for i, v in enumerate(self.data[f'{split}_img_fnames']):
+        for split in dataset.subsets:
+            for i, v in enumerate(dataset.data[f'{split}_img_fnames']):
                 if re.search(fname_re, v) is not None:
                     print(f'found image {v} in split {split}')
                     img_index = i
@@ -441,7 +449,7 @@ class SingleImageEvalDataset(VisDialDataset):
 
         # add a split to hold the single image we want
         data = {}
-        for key, val in self.data.items():
+        for key, val in dataset.data.items():
             if key.startswith(img_split):
                 new_key = key.replace(img_split, self.single_split_name)
                 if 'opt_' in key:
@@ -453,10 +461,12 @@ class SingleImageEvalDataset(VisDialDataset):
                     data[new_key] = [val[img_index]]
                 else:
                     data[new_key] = val.index_select(0, tensor_index)
-        self.data.update(data)
 
-        self.subsets = tuple(list(self.subsets) + [self.single_split_name])
-        self.split = self.single_split_name
-
-        self.numDataPoints[self.single_split_name] = 1
+        self.data = ChainMap(data, dataset.data)
+        self.numDataPoints = ChainMap({self.single_split_name: 1},
+                                      dataset.numDataPoints)
+        self.subsets = dataset.subsets + (self.single_split_name,)
         self.batchSize = 1
+
+    def __getattr__(self, item):
+        return getattr(self._dataset, item)
