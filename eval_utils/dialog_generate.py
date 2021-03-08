@@ -565,13 +565,13 @@ def run_dialog(params,
 
 def run_single_dialog(params,
                       dataset,
-                      split,
                       aBot,
                       qBot=None):
     assert qBot is not None and aBot is not None,\
             "Must provide Q-Bot and A-Bot when generating dialog"
     assert isinstance(dataset, SingleImageEvalDataset)
 
+    split = dataset.single_split_name
     beamSize = params['beamSize']
     old_split = dataset.split
     batchSize = dataset.batchSize

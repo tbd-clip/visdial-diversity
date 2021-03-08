@@ -1,14 +1,18 @@
 import json
 import os
 
-from flask import Flask
+from flask import Flask, request
 
 from dataloader import SingleImageEvalDataset
 from eval_utils.dialog_generate import run_single_dialog
 from web_demo import setup
+from web_demo.setup import MODELS
 
 
-params, base_dataset, qBot, aBot = setup.setup()
+models = {
+    model: setup.setup(model) for model in MODELS.keys()
+}
+# params, base_dataset, qBot, aBot = setup.setup('CLIP_fake_RL')
 
 app = Flask(__name__)
 
@@ -26,14 +30,22 @@ def image_list():
             result += [os.path.splitext(img)[0][-6:] for img in val]
     return json.dumps(result)
 
+
+@app.route('/api/models')
+def model_list():
+    return json.dumps(MODELS.keys())
+
+
 @app.route('/api/dialog/<int:img_id>')
 def dialog(img_id):
-    global base_dataset
+    global models
+
+    model_name = request.args.get('model', 'Das_OG')
+    params, base_dataset, qBot, aBot = models[model_name]
 
     # print("Performing single dialog generation...")
     dataset = SingleImageEvalDataset(base_dataset, img_id)
-    split = 'single'
-    dialog = run_single_dialog(params, dataset, split, aBot, qBot)
+    dialog = run_single_dialog(params, dataset, aBot, qBot)
 
     return json.dumps(dialog)
 

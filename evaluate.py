@@ -174,11 +174,8 @@ if 'dialog' in params['evalModeList']:
 if 'single_dialog' in params['evalModeList']:
     print("Performing single dialog generation...")
     dataset = SingleImageEvalDataset(dataset, '185565')
-    split = 'single'
-    outputFolder = params["savePath"]
-    os.makedirs(outputFolder, exist_ok=True)
     from pprint import pprint
-    pprint(run_single_dialog(params, dataset, split, aBot, qBot))
+    pprint(run_single_dialog(params, dataset, aBot, qBot))
 
 if 'human_study' in params['evalModeList']:
     # use new dataloader
