@@ -178,7 +178,7 @@ if 'single_dialog' in params['evalModeList']:
     outputFolder = params["savePath"]
     os.makedirs(outputFolder, exist_ok=True)
     from pprint import pprint
-    pprint(run_single_dialog(params, dataset, split, aBot, qBot, beamSize=params['beamSize']))
+    pprint(run_single_dialog(params, dataset, split, aBot, qBot))
 
 if 'human_study' in params['evalModeList']:
     # use new dataloader

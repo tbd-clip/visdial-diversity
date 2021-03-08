@@ -567,13 +567,12 @@ def run_single_dialog(params,
                       dataset,
                       split,
                       aBot,
-                      qBot=None,
-                      beamSize=1):
+                      qBot=None):
     assert qBot is not None and aBot is not None,\
             "Must provide Q-Bot and A-Bot when generating dialog"
     assert isinstance(dataset, SingleImageEvalDataset)
-    # rankMetrics, _ = rankQBot(qBot, dataset, 'val')
 
+    beamSize = params['beamSize']
     old_split = dataset.split
     batchSize = dataset.batchSize
     numRounds = dataset.numRounds
@@ -693,6 +692,7 @@ def run_single_dialog(params,
             aBot.observe(round, ans=answers, ansLens=ansLens)
             qBot.observe(round, ans=answers, ansLens=ansLens)
             qBot.encoder()
+            predFeatures = qBot.predictImage()  # todo use me
 
             cur_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
             if round == 0:

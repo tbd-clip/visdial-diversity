@@ -226,8 +226,8 @@ class VisDialDataset(Dataset):
             for rId in range(numRounds):
                 length = seqLen[thId, rId]
                 if length == 0:
-                    print('Warning: Skipping empty %s sequence at (%d, %d)'\
-                          %(stype, thId, rId))
+                    # print('Warning: Skipping empty %s sequence at (%d, %d)'\
+                    #       %(stype, thId, rId))
                     continue
 
                 sequence[thId, rId, 1:length + 1] = seq[thId, rId, :length]
@@ -259,8 +259,8 @@ class VisDialDataset(Dataset):
         for thId in range(numConvs):
             length = seqLen[thId]
             if length == 0:
-                print('Warning: Skipping empty %s sequence at (%d)' % (stype,
-                                                                       thId))
+                # print('Warning: Skipping empty %s sequence at (%d)' % (stype,
+                #                                                        thId))
                 continue
 
             sequence[thId, 1:length + 1] = seq[thId, :length]
@@ -286,8 +286,8 @@ class VisDialDataset(Dataset):
         for ansId in range(ansListLen):
             length = ansLen[ansId]
             if length == 0:
-                print('Warning: Skipping empty option answer list at (%d)'\
-                        %ansId)
+                # print('Warning: Skipping empty option answer list at (%d)'\
+                #         %ansId)
                 continue
 
             options[ansId, 1:length + 1] = ans[ansId, :length]
