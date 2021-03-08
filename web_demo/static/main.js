@@ -18,18 +18,28 @@
     // Templates
     const dialogTemplate = Handlebars.compile(
         document.getElementById("dialog-template").innerHTML);
+    const inputModelNameTemplate = Handlebars.compile(
+        document.getElementById("input-modelName-template").innerHTML);
 
     $('form').on('submit', function(e) {
         console.log(e);
         const imageId = $('#input-imageId').val();
-        $.getJSON('/api/dialog/' + imageId, function(response) {
+        const modelName = $('#input-modelName').val();
+        const url = `/api/dialog/${imageId}?model=${modelName}`;
+        $.getJSON(url, function(response) {
             $('#main').html(dialogTemplate(response.data[0]));
-            $('#response').html(JSON.stringify(response));
-            $('form')[0].reset();
+            // $('#response').html(JSON.stringify(response));
+            // $('form')[0].reset();
         });
         e.preventDefault();
         return false;
     });
+    
+    // initialize Model select
+    $.getJSON('/api/models', function(response) {
+        $('#input-modelName').html(inputModelNameTemplate({models: response}));
+    });
+    
     // $.get('results/results.json', function(data) {
     //     var image_root = "/coco-images/val2014/";
     //     if (data.opts.sampleWords == 0)

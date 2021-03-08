@@ -25,10 +25,20 @@
         <form>
             <label for="input-imageId">Image ID</label>
             <input type="number" id="input-imageId" name="imageId" />
+            <label for="input-modelName">Model</label>
+            <select type="select" name="modelName" id="input-modelName">
+
+            </select>
             <button type="submit">Submit</button>
         </form>
         <div id="response"></div>
     </div>
+
+    <script id="input-modelName-template" type="text/x-handlebars-template">
+      {{#each models}}
+      <option value="{{model}}">{{model}}</option>
+      {{/each}}
+    </script>
 
     <script id="dialog-template" type="text/x-handlebars-template">
       <div class="dialog">

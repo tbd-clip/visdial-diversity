@@ -33,7 +33,7 @@ def image_list():
 
 @app.route('/api/models')
 def model_list():
-    return json.dumps(MODELS.keys())
+    return json.dumps([{'model': m} for m in MODELS.keys()])
 
 
 @app.route('/api/dialog/<int:img_id>')
