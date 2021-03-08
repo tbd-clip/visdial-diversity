@@ -1,3 +1,4 @@
+#!/usr/bin/env bash
 echo "source bashrc"
 source ~/.bashrc
 echo "cd nlp-project"
