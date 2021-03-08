@@ -135,6 +135,10 @@ app = Flask(__name__)
 def index():
     return 'Hello!'
 
+@app.route('/api/images')
+def image_list():
+    pass
+
 @app.route('/api/dialog/<int:img_id>')
 def dialog(img_id):
     global base_dataset
