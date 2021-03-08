@@ -1,4 +1,5 @@
 import json
+import os
 
 from flask import Flask
 
@@ -18,7 +19,12 @@ def index():
 
 @app.route('/api/images')
 def image_list():
-    pass
+    global base_dataset
+    result = []
+    for key, val in base_dataset.data.items():
+        if key.endswith('img_fnames'):
+            result += [os.path.splitext(img)[0][-6:] for img in val]
+    return json.dumps(result)
 
 @app.route('/api/dialog/<int:img_id>')
 def dialog(img_id):
