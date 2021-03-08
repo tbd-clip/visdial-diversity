@@ -15,7 +15,7 @@ app = Flask(__name__)
 
 @app.route('/')
 def index():
-    return 'Hello!'
+    return app.send_static_file('index.html')
 
 @app.route('/api/images')
 def image_list():

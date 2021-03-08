@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>VisDial Results</title>
+    <link rel="stylesheet" type="text/css" href="static/bootstrap.min.css">
+    <style type="text/css">
+        body {
+            font-weight: 300;
+        }
+        h1 {
+            font-size: 40px;
+            font-weight: 300;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-xs-12">
+                <h1 id="heading"></h1>
+            </div>
+        </div>
+        <hr>
+        <div id="main"></div>
+        <form>
+            <label for="input-imageId">Image ID</label>
+            <input type="number" id="input-imageId" name="imageId" />
+            <button type="submit">Submit</button>
+        </form>
+        <div id="response"></div>
+    </div>
+
+    <script id="dialog-template" type="text/x-handlebars-template">
+      <div class="dialog">
+        <h1>{{image_id}}</h1>
+        <img src="/static/images/{{image_filename}}" alt="{{caption}}">
+        <div class="caption">{{caption}}</div>
+        <ul class="dialog-list">
+          {{#each dialog}}
+          <li class="dialog-entry">
+            <span class="question">{{question}}</span>
+            <span class="answer">{{answer}}</span>
+          </li>
+          {{/each}}
+        </ul>
+      </div>
+    </script>
+
+    <script type="text/javascript" src="static/jquery-3.2.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/handlebars@latest/dist/handlebars.js"></script>
+    <script type="text/javascript" src="static/main.js"></script>
+</body>
+</html>

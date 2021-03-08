@@ -648,7 +648,9 @@ def run_single_dialog(params,
             output_dialog = False
         tot_idx = tot_idx + 1
         imgIds = [getImgId(x) for x in batch['index']]
-        dialog = [{'dialog': [], 'image_id': imgId} for imgId in imgIds]
+        fnames = [getImgFileName(x) for x in batch['index']]
+        dialog = [{'dialog': [], 'image_id': imgId, 'image_filename': fname}
+                  for imgId, fname in zip(imgIds, fnames)]
 
         if dataset.useGPU:
             batch = {key: v.cuda() if hasattr(v, 'cuda')\
