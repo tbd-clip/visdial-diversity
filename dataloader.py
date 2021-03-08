@@ -423,7 +423,7 @@ class VisDialDataset(Dataset):
 
 
 class SingleImageEvalDataset(VisDialDataset):
-    single_split_name = 'single'
+    single_split_name = 'test'
     _dataset = None
 
     def __init__(self, dataset, image_id):
@@ -462,11 +462,14 @@ class SingleImageEvalDataset(VisDialDataset):
                 else:
                     data[new_key] = val.index_select(0, tensor_index)
 
-        self.data = ChainMap(data, dataset.data)
-        self.numDataPoints = ChainMap({self.single_split_name: 1},
-                                      dataset.numDataPoints)
-        self.subsets = dataset.subsets + (self.single_split_name,)
+        self.data = data
+        self.numDataPoints = {self.single_split_name: 1}
+        self.subsets = (self.single_split_name,)
         self.batchSize = 1
+        self.split = self.single_split_name
 
     def __getattr__(self, item):
         return getattr(self._dataset, item)
+
+    def get_nearest_image(self, feature_vector):
+        pass

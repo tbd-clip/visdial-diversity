@@ -12,7 +12,6 @@ from web_demo.setup import MODELS
 models = {
     model: setup.setup(model) for model in MODELS.keys()
 }
-# params, base_dataset, qBot, aBot = setup.setup('CLIP_fake_RL')
 
 app = Flask(__name__)
 
@@ -33,20 +32,15 @@ def image_list():
 
 @app.route('/api/models')
 def model_list():
-    return json.dumps([{'model': m} for m in MODELS.keys()])
+    return json.dumps([{'model': m} for m in models.keys()])
 
 
 @app.route('/api/dialog/<int:img_id>')
 def dialog(img_id):
-    global models
-
     model_name = request.args.get('model', 'Das_OG')
     params, base_dataset, qBot, aBot = models[model_name]
-
-    # print("Performing single dialog generation...")
     dataset = SingleImageEvalDataset(base_dataset, img_id)
     dialog = run_single_dialog(params, dataset, aBot, qBot)
-
     return json.dumps(dialog)
 
 

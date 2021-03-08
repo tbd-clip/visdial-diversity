@@ -578,14 +578,6 @@ def run_single_dialog(params,
     numRounds = dataset.numRounds
     train_questions = set()
 
-    dataset.split = 'train'
-    dataloader = DataLoader(
-        dataset,
-        batch_size=batchSize,
-        shuffle=False,
-        num_workers=0,
-        collate_fn=dataset.collate_fn)
-
     ind2word = dataset.ind2word
     to_str_gt = lambda w: str(" ".join([ind2word[x] for x in filter(lambda x:\
                     x>0,w.data.cpu().numpy())])) #.encode('utf-8','ignore')
