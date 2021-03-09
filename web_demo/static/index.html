@@ -21,7 +21,6 @@
             </div>
         </div>
         <hr>
-        <div id="main"></div>
         <form>
             <label for="input-imageId">Image ID</label>
             <input type="number" id="input-imageId" name="imageId" />
@@ -31,6 +30,7 @@
             </select>
             <button type="submit">Submit</button>
         </form>
+        <div id="main"></div>
         <div id="response"></div>
     </div>
 
@@ -50,6 +50,7 @@
           <li class="dialog-entry">
             <span class="question">{{question}}</span>
             <span class="answer">{{answer}}</span>
+            <img src="/static/images/{{nearest}}" alt="nearest image" style="max-width: 300px">
           </li>
           {{/each}}
         </ul>

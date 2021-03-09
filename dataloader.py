@@ -438,14 +438,6 @@ class SingleImageEvalDataset(VisDialDataset):
 
         self._dataset = dataset
 
-        # if dataset doesn't have KDTrees built, build them
-        for split in self._dataset.subsets:
-            attr = self.kd_attr_format.format(split)
-            if not hasattr(self._dataset, attr):
-                print(f'building KDTree for split {split}')
-                images = self._dataset.data[f'{split}_img_fv']
-                setattr(self._dataset, attr, KDTree(images, leaf_size=25))
-
         # find image by id, then use its index to get all related objects
         fname_re = re.compile(f'{image_id}')
         img_split = None
@@ -482,15 +474,15 @@ class SingleImageEvalDataset(VisDialDataset):
     def __getattr__(self, item):
         return getattr(self._dataset, item)
 
-    def get_nearest_image(self, feature_vector):
+    def get_nearest_image(self, fv):
         # find closest among these, look up the image id by index
         best = []
         for split in self._dataset.subsets:
-            kd_attr = self.kd_attr_format.format(split)
-            tree = getattr(self._dataset, kd_attr)
-            dist, ind = tree.query(feature_vector.data.cpu().numpy(), k=1)
-            best.append((dist[0][0], ind[0][0], split))
+            images = self._dataset.data[f'{split}_img_fv']  # each row is a fv
+            shape = [images.shape[1], 1]  # column vector
+            dot, index = (images.cuda() @ fv.data.view(shape)).topk(1, dim=0)
+            best.append((dot[0][0], index[0][0], split))
 
         best = sorted(best, key=lambda x: x[0])
-        _, index, split = best[0]
+        _, index, split = best[-1]
         return self._dataset.data[f'{split}_img_fnames'][index]

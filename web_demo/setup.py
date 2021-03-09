@@ -33,6 +33,10 @@ MODELS = {
         'startFrom': 'checkpoints/Das_RL_abot_ep_2.vd',
         'qstartFrom': 'checkpoints/Das_RL_qbot_ep_2.vd',
     },
+    'Das_BIG_RL': {
+        'startFrom': 'checkpoints/Das_BIG_RL_abot_ep_2.vd',
+        'qstartFrom': 'checkpoints/Das_BIG_RL_qbot_ep_2.vd',
+    },
     'diversity_fake_RL_abot_ep_2': {
         'startFrom': 'checkpoints/diversity_fake_RL_abot_ep_2.vd',
         'qstartFrom': 'checkpoints/diversity_fake_RL_qbot_ep_2.vd',
