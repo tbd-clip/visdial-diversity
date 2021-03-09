@@ -22,7 +22,8 @@ def index():
 
 @app.route('/api/images')
 def image_list():
-    global base_dataset
+    model_name = request.args.get('model', 'diversity_RL')
+    params, base_dataset, qBot, aBot = models[model_name]
     result = []
     for key, val in base_dataset.data.items():
         if key.endswith('img_fnames'):
@@ -37,7 +38,7 @@ def model_list():
 
 @app.route('/api/dialog/<int:img_id>')
 def dialog(img_id):
-    model_name = request.args.get('model', 'Das_OG')
+    model_name = request.args.get('model', 'diversity_RL')
     params, base_dataset, qBot, aBot = models[model_name]
     dataset = SingleImageEvalDataset(base_dataset, img_id)
     dialog = run_single_dialog(params, dataset, aBot, qBot)

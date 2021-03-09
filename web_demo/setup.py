@@ -119,26 +119,6 @@ DEFAULTS = {
     'discountFactor': 0.5,
 }
 
-# TODO : 031673 - this happens for images in the test split
-#   File "/nfs/hpc/share/lallya/nlp-project/eval_utils/dialog_generate.py", line 645, in run_single_dialog
-#     for idx, batch in enumerate(dataloader):
-#   File "/nfs/hpc/share/lallya/.conda/envs/visdial-diversity/lib/python3.6/site-packages/torch/utils/data/dataloader.py", line 259, in _
-# _next__
-#     batch = self.collate_fn([self.dataset[i] for i in indices])
-#   File "/nfs/hpc/share/lallya/.conda/envs/visdial-diversity/lib/python3.6/site-packages/torch/utils/data/dataloader.py", line 259, in <
-# listcomp>
-#     batch = self.collate_fn([self.dataset[i] for i in indices])
-#   File "/nfs/hpc/share/lallya/nlp-project/dataloader.py", line 308, in __getitem__
-#     item = self.getIndexItem(self._split, idx)
-#   File "/nfs/hpc/share/lallya/nlp-project/dataloader.py", line 389, in getIndexItem
-#     ansId = self.data[dtype + '_ans_ind'][idx]
-#   File "/nfs/hpc/share/lallya/.conda/envs/visdial-diversity/lib/python3.6/collections/__init__.py", line 883, in __getitem__
-#     return self.__missing__(key)            # support subclasses that define __missing__
-#   File "/nfs/hpc/share/lallya/.conda/envs/visdial-diversity/lib/python3.6/collections/__init__.py", line 875, in __missing__
-#     raise KeyError(key)
-# KeyError: 'single_ans_ind'
-
-
 
 def _get_dataset(params):
     if not hasattr(_get_dataset, 'cache'):

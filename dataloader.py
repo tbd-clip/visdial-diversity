@@ -9,8 +9,10 @@ import torch
 from six import iteritems
 from six.moves import range
 from sklearn.preprocessing import normalize
+from sklearn.neighbors import KDTree
 from torch.utils.data import Dataset
 from typing import Dict, List, Union
+
 
 class VisDialDataset(Dataset):
     def __init__(self, params, subsets):
@@ -424,6 +426,7 @@ class VisDialDataset(Dataset):
 
 class SingleImageEvalDataset(VisDialDataset):
     single_split_name = 'test'
+    kd_attr_format = '_%s_kd_tree'
     _dataset = None
 
     def __init__(self, dataset, image_id):
@@ -434,6 +437,14 @@ class SingleImageEvalDataset(VisDialDataset):
         # skip super call
 
         self._dataset = dataset
+
+        # if dataset doesn't have KDTrees built, build them
+        for split in self._dataset.subsets:
+            attr = self.kd_attr_format.format(split)
+            if not hasattr(self._dataset, attr):
+                print(f'building KDTree for split {split}')
+                images = self._dataset.data[f'{split}_img_fv']
+                setattr(self._dataset, attr, KDTree(images, leaf_size=25))
 
         # find image by id, then use its index to get all related objects
         fname_re = re.compile(f'{image_id}')
@@ -472,4 +483,14 @@ class SingleImageEvalDataset(VisDialDataset):
         return getattr(self._dataset, item)
 
     def get_nearest_image(self, feature_vector):
-        pass
+        # find closest among these, look up the image id by index
+        best = []
+        for split in self._dataset.subsets:
+            kd_attr = self.kd_attr_format.format(split)
+            tree = getattr(self._dataset, kd_attr)
+            dist, ind = tree.query(feature_vector.data.cpu().numpy(), k=1)
+            best.append((dist[0][0], ind[0][0], split))
+
+        best = sorted(best, key=lambda x: x[0])
+        _, index, split = best[0]
+        return self._dataset.data[f'{split}_img_fnames'][index]

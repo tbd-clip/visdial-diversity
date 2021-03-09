@@ -687,6 +687,7 @@ def run_single_dialog(params,
             qBot.observe(round, ans=answers, ansLens=ansLens)
             qBot.encoder()
             predFeatures = qBot.predictImage()  # todo use me
+            nearest = dataset.get_nearest_image(predFeatures)
 
             cur_dialog_hidden = qBot.encoder.dialogHiddens[-1][0]
             if round == 0:
@@ -728,6 +729,7 @@ def run_single_dialog(params,
                     if round == 0:
                         norm_score = float(norm_scores[j])
                         dialog[j]['dialog'].append({
+                            'nearest': nearest,
                             "answer": answer_str[8:],
                             "question": question_str[8:] + ":" + "N:%.2f" % norm_score + " "
                         })  # "8:" for indexing out initial <START>
@@ -737,6 +739,7 @@ def run_single_dialog(params,
                         norm_score = float(norm_scores[j])
                         huber_score = float(huber_scores[j])
                         dialog[j]['dialog'].append({
+                            'nearest': nearest,
                             "answer": answer_str[8:],
                             "question": question_str[8:] + ":" + "C:%.2f" % similarity_score + ";" +
                                         "NP:%.2f" % norm_difference_score + "H:%.2f" % huber_score + ";" +
