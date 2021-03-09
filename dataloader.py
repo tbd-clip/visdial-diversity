@@ -9,6 +9,7 @@ import torch
 from six import iteritems
 from six.moves import range
 from sklearn.preprocessing import normalize
+from sklearn.metrics.pairwise import pairwise_distances
 from sklearn.neighbors import KDTree
 from torch.utils.data import Dataset
 from typing import Dict, List, Union
@@ -427,7 +428,10 @@ class VisDialDataset(Dataset):
 class SingleImageEvalDataset(VisDialDataset):
     single_split_name = 'test'
     kd_attr_format = '_%s_kd_tree'
+
     _dataset = None
+    img_index = None
+    img_split = None
 
     def __init__(self, dataset, image_id):
         # This object wraps the given dataset object. We pass through all
@@ -440,28 +444,26 @@ class SingleImageEvalDataset(VisDialDataset):
 
         # find image by id, then use its index to get all related objects
         fname_re = re.compile(f'{image_id}')
-        img_split = None
-        img_index = None
         for split in dataset.subsets:
             for i, v in enumerate(dataset.data[f'{split}_img_fnames']):
                 if re.search(fname_re, v) is not None:
                     print(f'found image {v} in split {split}')
-                    img_index = i
-                    img_split = split
-        tensor_index = torch.LongTensor([img_index])
+                    self.img_index = i
+                    self.img_split = split
+        tensor_index = torch.LongTensor([self.img_index])
 
         # add a split to hold the single image we want
         data = {}
         for key, val in dataset.data.items():
-            if key.startswith(img_split):
-                new_key = key.replace(img_split, self.single_split_name)
+            if key.startswith(self.img_split):
+                new_key = key.replace(self.img_split, self.single_split_name)
                 if 'opt_' in key:
                     # these are answer options
                     # val_opt is used to index into val_opt_list, val_opt_len
                     # so just keep opt_list, opt_len as they come
                     data[new_key] = val.clone()
                 elif isinstance(val, list):
-                    data[new_key] = [val[img_index]]
+                    data[new_key] = [val[self.img_index]]
                 else:
                     data[new_key] = val.index_select(0, tensor_index)
 
@@ -476,13 +478,13 @@ class SingleImageEvalDataset(VisDialDataset):
 
     def get_nearest_image(self, fv):
         # find closest among these, look up the image id by index
-        best = []
-        for split in self._dataset.subsets:
-            images = self._dataset.data[f'{split}_img_fv']  # each row is a fv
-            shape = [images.shape[1], 1]  # column vector
-            dot, index = (images.cuda() @ fv.data.view(shape)).topk(1, dim=0)
-            best.append((dot[0][0], index[0][0], split))
-
-        best = sorted(best, key=lambda x: x[0])
-        _, index, split = best[-1]
-        return self._dataset.data[f'{split}_img_fnames'][index]
+        images = self._dataset.data[f'{self.img_split}_img_fv']
+        distances = pairwise_distances(images, fv.data, metric='cosine')
+        index = distances.argmin()
+        dist = distances[index]
+        fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
+        return {
+            'path': fname,
+            'id': re.search(fname_re, fname)[0],
+            'caption': self._dataset.data[f'{self.img_split}_cap'][index],
+        }
