@@ -476,6 +476,14 @@ class SingleImageEvalDataset(VisDialDataset):
     def __getattr__(self, item):
         return getattr(self._dataset, item)
 
+    def to_string(self, tokens, trim_special=True):
+        ignore = [0]
+        if trim_special:
+            ignore += [self._dataset.startToken, self._dataset.endToken]
+        result = ' '.join([
+            self._dataset.ind2word[t] for t in cap if t not in ignore
+        ])
+
     def get_nearest_image(self, fv):
         # find closest among these, look up the image id by index
         images = self._dataset.data[f'{self.img_split}_img_fv']
@@ -483,8 +491,10 @@ class SingleImageEvalDataset(VisDialDataset):
         index = distances.argmin()
         dist = distances[index]
         fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
+        cap = self._dataset.data[f'{self.img_split}_cap'][index].data
+        caption = self.to_string(cap)
         return {
             'path': fname,
-            'id': re.search(fname_re, fname)[0],
-            'caption': self._dataset.data[f'{self.img_split}_cap'][index],
+            'id': re.search('(\d{6})\.jpg', fname)[1],
+            'caption': caption,
         }
