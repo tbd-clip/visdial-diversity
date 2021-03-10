@@ -749,17 +749,12 @@ def run_single_dialog(params,
         tot_examples += batchSize
 
         if output_dialog:
-            text['data'].extend(dialog)
+            text['session'] = dialog[0]
 
     similarity_scores_mean = similarity_scores_mean * (1.0/tot_idx)
     norm_difference_scores_mean = norm_difference_scores_mean * (1.0/tot_idx)
     norm_scores_mean = norm_scores_mean *(1.0/tot_idx)
     huber_scores_mean = huber_scores_mean *(1.0/tot_idx)
-
-    print("Mean Cos Similarity Scores:", similarity_scores_mean)
-    print("Mean Difference of Norms Scores:", norm_difference_scores_mean)
-    print("Mean Norm of Dialog State:", norm_scores_mean)
-    print("Mean Huber Loss(Norm of differences):", huber_scores_mean)
 
     text['opts'] = {
         'qbot': params['qstartFrom'],

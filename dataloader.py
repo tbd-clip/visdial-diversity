@@ -1,18 +1,16 @@
 import os
 import json
 import re
-from collections import ChainMap
 
 import h5py
 import numpy as np
 import torch
+from sklearn.metrics import pairwise_distances
+from torch.nn import functional as f
 from six import iteritems
 from six.moves import range
 from sklearn.preprocessing import normalize
-from sklearn.metrics.pairwise import pairwise_distances
-from sklearn.neighbors import KDTree
 from torch.utils.data import Dataset
-from typing import Dict, List, Union
 
 
 class VisDialDataset(Dataset):
@@ -480,18 +478,20 @@ class SingleImageEvalDataset(VisDialDataset):
         ignore = [0]
         if trim_special:
             ignore += [self._dataset.startToken, self._dataset.endToken]
-        result = ' '.join([
-            self._dataset.ind2word[t] for t in cap if t not in ignore
+        return ' '.join([
+            self._dataset.ind2word[t] for t in tokens if t not in ignore
         ])
 
     def get_nearest_image(self, fv):
         # find closest among these, look up the image id by index
-        images = self._dataset.data[f'{self.img_split}_img_fv']
-        distances = pairwise_distances(images, fv.data, metric='cosine')
-        index = distances.argmin()
-        dist = distances[index]
+        images = self._dataset.data[f'{self.img_split}_img_fv'].cuda()
+        fv = fv.data.repeat(images.shape[0], 1).cuda()
+        distances = f.cosine_similarity(images, fv, dim=1)
+        # distances = pairwise_distances(images, fv)#, metric='cosine')
+        _, i = torch.max(distances, dim=0)
+        index = i[0]
         fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
-        cap = self._dataset.data[f'{self.img_split}_cap'][index].data
+        cap = self._dataset.data[f'{self.img_split}_cap'][index]
         caption = self.to_string(cap)
         return {
             'path': fname,

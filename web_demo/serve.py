@@ -12,9 +12,10 @@ from web_demo.setup import MODELS
 models = {model: setup.setup(model) for model in MODELS.keys()}
 
 app = Flask(__name__)
+app.config['TEMPLATES_AUTO_RELOAD'] = True
 
 
-@app.route("/")
+@app.route("/", methods=['POST', 'GET', 'OPTIONS'])
 def index():
     # data = {
     #     "dialog": [
@@ -137,7 +138,20 @@ def index():
     #     image_filename=data["image_filename"],
     #     caption=data["caption"],
     # )
-    return render_template("index.html")
+    context = {
+        'models': list(models.keys()),
+    }
+
+    if request.method == 'POST':
+        model_name = request.form.get("model", "diversity_RL")
+        img_id = request.form.get('imageId')
+
+        params, base_dataset, qBot, aBot = models[model_name]
+        dataset = SingleImageEvalDataset(base_dataset, img_id)
+        dialog = run_single_dialog(params, dataset, aBot, qBot)
+        context['session'] = dialog['session']
+
+    return render_template("index.html", **context)
 
 
 @app.route("/api/images")
