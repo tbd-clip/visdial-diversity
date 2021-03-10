@@ -731,8 +731,9 @@ def run_single_dialog(params,
                         dialog[j]['dialog'].append({
                             'nearest': nearest,
                             "answer": answer_str[8:],
-                            "question": question_str[8:] + ":" + "N:%.2f" % norm_score + " "
-                        })  # "8:" for indexing out initial <START>
+                            "question": question_str[8:],
+                            'N': '%.2f' % norm_score,
+                        })
                     else:
                         similarity_score = float(similarity_scores[j])
                         norm_difference_score = float(norm_difference_scores[j])
@@ -741,10 +742,12 @@ def run_single_dialog(params,
                         dialog[j]['dialog'].append({
                             'nearest': nearest,
                             "answer": answer_str[8:],
-                            "question": question_str[8:] + ":" + "C:%.2f" % similarity_score + ";" +
-                                        "NP:%.2f" % norm_difference_score + "H:%.2f" % huber_score + ";" +
-                                        "N:%.2f" % norm_score + " "
-                        })  # "8:" for indexing out initial <START>
+                            "question": question_str[8:],
+                            'C': "%.2f" % similarity_score,
+                            'NP': "%.2f" % norm_difference_score,
+                            'H': "%.2f" % huber_score,
+                            'N': "%.2f" % norm_score,
+                        })
 
         tot_examples += batchSize
 

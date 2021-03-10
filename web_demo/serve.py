@@ -1,5 +1,6 @@
 import json
 import os
+import random
 
 from flask import Flask, request, render_template
 
@@ -13,6 +14,15 @@ models = {model: setup.setup(model) for model in MODELS.keys()}
 
 app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
+
+
+def get_random_image_id(base_dataset):
+    lists = []
+    for key, val in base_dataset.data.items():
+        if key.endswith("img_fnames"):
+            lists.append(val)
+    img = random.choice(random.choice(lists))
+    return os.path.splitext(img)[0][-6:]
 
 
 @app.route("/", methods=['POST', 'GET', 'OPTIONS'])
@@ -143,13 +153,17 @@ def index():
     }
 
     if request.method == 'POST':
-        model_name = request.form.get("model", "diversity_RL")
-        img_id = request.form.get('imageId')
-
+        model_name = request.form.get("modelName", "diversity_RL")
         params, base_dataset, qBot, aBot = models[model_name]
+
+        img_id = request.form.get('imageId', '')
+        if img_id == '':
+            img_id = get_random_image_id(base_dataset)
+
         dataset = SingleImageEvalDataset(base_dataset, img_id)
         dialog = run_single_dialog(params, dataset, aBot, qBot)
         context['session'] = dialog['session']
+        context['form'] = request.form
 
     return render_template("index.html", **context)
 

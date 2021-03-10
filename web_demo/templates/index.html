@@ -21,7 +21,7 @@
     </head>
     <body>
         <nav class="navbar navbar-dark bg-primary">
-            <a class="navbar-brand" href="#">
+            <a class="navbar-brand" href="/">
                 <img
                     src="https://pbs.twimg.com/profile_images/1310968517961740289/m9wp7-vJ_400x400.jpg"
                     width="30"
@@ -46,15 +46,23 @@
                     >
                 </div>
                 <div class="col-auto">
-                    <input type="number" class="form-control" id="image_id" name="imageId" />
+                    <input type="number" class="form-control" id="image_id"
+                           name="imageId"
+                           {%if form%}value="{{form['imageId']}}"{%endif%} />
                 </div>
                 <div class="col-auto">
-                    <label for="input-modelName">Model</label>
+                    <label for="input-modelName" class="form-label"><b>Model:</b></label>
                 </div>
                 <div class="col-auto">
-                    <select type="select" name="modelName" id="input-modelName">
+                    <select class="form-select" aria-label="Model name"
+                            type="select" name="modelName" id="input-modelName">
                         {% for model in models %}
-                            <option value="{{model}}">{{model}}</option>
+                            <option value="{{model}}"
+                                    {% if form and form['modelName'] == model %}
+                                    selected="selected"
+                                    {%endif%}>
+                                {{model}}
+                            </option>
                         {% endfor %}
                     </select>
                 </div>
