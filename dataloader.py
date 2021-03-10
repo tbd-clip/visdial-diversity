@@ -484,11 +484,14 @@ class SingleImageEvalDataset(VisDialDataset):
 
     def get_nearest_image(self, fv):
         # find closest among these, look up the image id by index
-        images = self._dataset.data[f'{self.img_split}_img_fv'].cuda()
-        fv = fv.data.repeat(images.shape[0], 1).cuda()
-        distances = f.cosine_similarity(images, fv, dim=1)
-        # distances = pairwise_distances(images, fv)#, metric='cosine')
-        _, i = torch.max(distances, dim=0)
+        images = self._dataset.data[f'{self.img_split}_img_fv']
+        fv = fv.data.repeat(images.shape[0], 1)
+        if self._dataset.useGPU:
+            images = images.cuda()
+            fv = fv.cuda()
+        errors = (images - fv) ** 2
+        distances = torch.mean(errors, dim=1)
+        _, i = torch.min(distances, dim=0)
         index = i[0]
         fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
         cap = self._dataset.data[f'{self.img_split}_cap'][index]
