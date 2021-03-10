@@ -106,6 +106,7 @@
                             <div class="col-md-12">
                                 <img
                                     class="mx-auto d-block img-fluid"
+                                    style="max-height: 180px"
                                     src="/static/images/{{dialog['nearest']['path']}}"
                                     alt="{{dialog['nearest']['caption']}}"
                                 />
@@ -152,6 +153,10 @@
                             {% endif %} {% if dialog['N'] %}
                             <br />
                             <span><b>Norm Score:</b> {{ dialog['N'] }} </span>
+                            {% endif %} {% if dialog['nearest']['dist'] %}
+                            <br />
+                            <span><b>Image Distance (MSE):</b>
+                                {{ "%.4e"|format(dialog['nearest']['dist']|float) }} </span>
                             {% endif %}
                         </h5>
                     </div>

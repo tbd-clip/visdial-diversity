@@ -3,6 +3,12 @@ from dataloader import VisDialDataset
 
 
 MODELS = {
+    'Clip_with_glove': {
+        'startFrom': 'checkpoints/Clip_with_glove_abot_ep_19.vd',
+        'qstartFrom': 'checkpoints/Clip_with_glove_qbot_ep_19.vd',
+        'imgFeatureSize': 512,
+        'inputImg': 'data/visdial/data_img_clip.h5',
+    },
     'CLIP_fake_RL': {
         'startFrom': 'checkpoints/CLIP_fake_RL_abot_ep_1.vd',
         'qstartFrom': 'checkpoints/CLIP_fake_RL_qbot_ep_1.vd',

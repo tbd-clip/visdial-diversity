@@ -491,8 +491,9 @@ class SingleImageEvalDataset(VisDialDataset):
             fv = fv.cuda()
         errors = (images - fv) ** 2
         distances = torch.mean(errors, dim=1)
-        _, i = torch.min(distances, dim=0)
-        index = i[0]
+        d, i = torch.min(distances, dim=0)
+        index = int(i)
+        dist = float(d)
         fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
         cap = self._dataset.data[f'{self.img_split}_cap'][index]
         caption = self.to_string(cap)
@@ -500,4 +501,5 @@ class SingleImageEvalDataset(VisDialDataset):
             'path': fname,
             'id': re.search('(\d{6})\.jpg', fname)[1],
             'caption': caption,
+            'dist': dist,
         }
