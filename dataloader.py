@@ -482,9 +482,29 @@ class SingleImageEvalDataset(VisDialDataset):
             self._dataset.ind2word[t] for t in tokens if t not in ignore
         ])
 
-    def get_nearest_image(self, fv):
-        # find closest among these, look up the image id by index
-        images = self._dataset.data[f'{self.img_split}_img_fv']
+    def get_nearest_image(self, fv, all_splits=False):
+        """
+        Find nearest image in underlying dataset to the given feature vector.
+
+        :param fv: Variable with data of size [1 x image feature size]
+        :return: dict
+        """
+        split = self.img_split
+        fnames = self._dataset.data[f'{split}_img_fnames']
+        caps = self._dataset.data[f'{split}_cap']
+        images = self._dataset.data[f'{split}_img_fv']
+        if all_splits:
+            fnames = []
+            for split in self._dataset.subsets:
+                fnames += self._dataset.data[f'{split}_img_fnames']
+            caps = torch.cat([
+                self._dataset.data[f'{split}_cap']
+                for split in self._dataset.subsets
+            ], dim=0)
+            images = torch.cat([
+                self._dataset.data[f'{split}_img_fv']
+                for split in self._dataset.subsets
+            ], dim=0)
         fv = fv.data.repeat(images.shape[0], 1)
         if self._dataset.useGPU:
             images = images.cuda()
@@ -494,8 +514,8 @@ class SingleImageEvalDataset(VisDialDataset):
         d, i = torch.min(distances, dim=0)
         index = int(i)
         dist = float(d)
-        fname = self._dataset.data[f'{self.img_split}_img_fnames'][index]
-        cap = self._dataset.data[f'{self.img_split}_cap'][index]
+        fname = fnames[index]
+        cap = caps[index]
         caption = self.to_string(cap)
         return {
             'path': fname,

@@ -47,7 +47,7 @@
                 </div>
                 <div class="col-auto">
                     <input type="number" class="form-control" id="image_id"
-                           name="imageId"
+                           name="imageId" placeholder="240413"
                            {%if form%}value="{{form['imageId']}}"{%endif%} />
                 </div>
                 <div class="col-auto">
@@ -71,6 +71,7 @@
                         Submit
                     </button>
                 </div>
+                <div class="clearfix">Submit empty form for a random image.</div>
             </form>
         </div>
         <hr class="mb-0" />
